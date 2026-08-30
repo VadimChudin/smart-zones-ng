@@ -44,7 +44,7 @@ def synthetic(n: int = 600, seed: int = 7, start: float = 4400.0) -> pd.DataFram
     prices = np.empty(n)
     p = start
     for i in range(n):
-        pull = sum((lv - p) * 0.25 for lv in levels if abs(lv - p) < 6.0)
+        pull = sum((lv - p) * 0.8 for lv in levels if abs(lv - p) < 12.0)
         p += rng.normal(0.0, 1.6) + pull
         prices[i] = p
     opens = np.roll(prices, 1)
