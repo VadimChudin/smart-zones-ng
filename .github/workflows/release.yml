@@ -1,0 +1,92 @@
+name: Tests & Release
+
+# Тесты гоняются на каждый пуш в main и на пул-реквесты.
+# Релиз собирается и публикуется по тегу vX.Y.Z — так же, как в szp,
+# чтобы выпуск версии был одним действием: поставил тег, получил Release.
+#
+#   git tag -a v1.1.0 -m "что нового"
+#   git push origin v1.1.0
+#
+# Номер в теге обязан совпадать с szng.__version__ — иначе сборка падает,
+# и в релизе не окажется пакета с чужой версией.
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # нужно для публикации Release
+
+jobs:
+  test:
+    name: Тесты
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [ "3.10", "3.12" ]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Установить зависимости
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: pytest
+        run: python -m pytest -q
+
+  release:
+    name: Сборка и публикация релиза
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Проверить, что тег совпадает с szng.__version__
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG=$(python -c "import re,pathlib; \
+            print(re.search(r'__version__\s*=\s*\"([^\"]+)\"', \
+            pathlib.Path('szng/__init__.py').read_text(encoding='utf-8')).group(1))")
+          echo "тег: $TAG, пакет: $PKG"
+          if [ "$TAG" != "$PKG" ]; then
+            echo "::error::Тег v$TAG не совпадает с szng.__version__ = $PKG. Обнови версию в szng/__init__.py."
+            exit 1
+          fi
+
+      - name: Собрать sdist и wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+
+      - name: Проверить, что пакет устанавливается и импортируется
+        run: |
+          python -m venv /tmp/check
+          /tmp/check/bin/pip install --quiet dist/*.whl
+          /tmp/check/bin/python -c "import szng; print('установлено:', szng.__version__)"
+          /tmp/check/bin/szng --help > /dev/null && echo "CLI szng работает"
+
+      - name: Опубликовать Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Smart Zones NG ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            dist/*.whl
+            dist/*.tar.gz

@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "smart-zones-ng"
+description = "Движок сильных зон XAU/USD: order blocks, sweep-ликвидность, FVG, профиль объёма"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Proprietary" }
+authors = [{ name = "Vadim Chudin" }]
+keywords = ["trading", "xauusd", "gold", "market-structure", "order-blocks"]
+dynamic = ["version"]
+
+dependencies = [
+    "numpy>=1.24",
+    "pandas>=2.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+szng = "szng.pipeline:main"
+
+[tool.setuptools]
+packages = ["szng"]
+
+[tool.setuptools.dynamic]
+version = { attr = "szng.__version__" }
